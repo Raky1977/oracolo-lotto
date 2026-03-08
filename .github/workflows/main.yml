@@ -1,20 +1,29 @@
 name: Update Lotto Data
 on:
   schedule:
-    - cron: '0 21 * * *'
-  workflow_dispatch:
+    - cron: '0 21 * * *'  # Gira ogni sera alle 21:00
+  workflow_dispatch:      # Ti permette di lanciarlo a mano quando vuoi
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4
+
       - name: Run update script
         run: python scripts/update_data.py
+
       - name: Commit and push if changed
         run: |
           git config --global user.name 'GitHub Action'
