@@ -1,13 +1,63 @@
 {
-  "last_update": "08 Marzo 2026",
-  "ritardatari": [
-    {"numero": 77, "ritardo": 54},
-    {"numero": 13, "ritardo": 49},
-    {"numero": 82, "ritardo": 46}
-  ],
-  "frequenti": [
-    {"numero": 34, "uscite": 21},
-    {"numero": 55, "uscite": 19},
-    {"numero": 12, "uscite": 18}
-  ]
+    "lotto": {
+        "last_update": "08/03/2026",
+        "ritardatari": [
+            {
+                "numero": 77,
+                "ritardo": 105
+            },
+            {
+                "numero": 13,
+                "ritardo": 98
+            },
+            {
+                "numero": 82,
+                "ritardo": 46
+            }
+        ],
+        "frequenti": [
+            {
+                "numero": 34,
+                "uscite": 25
+            },
+            {
+                "numero": 90,
+                "uscite": 22
+            },
+            {
+                "numero": 12,
+                "uscite": 18
+            }
+        ]
+    },
+    "superenalotto": {
+        "last_update": "08/03/2026",
+        "ritardatari": [
+            {
+                "numero": 5,
+                "ritardo": 120
+            }
+        ],
+        "frequenti": [
+            {
+                "numero": 12,
+                "uscite": 48
+            }
+        ]
+    },
+    "dieciealotto": {
+        "last_update": "08/03/2026",
+        "ritardatari": [
+            {
+                "numero": 1,
+                "ritardo": 15
+            }
+        ],
+        "frequenti": [
+            {
+                "numero": 90,
+                "uscite": 60
+            }
+        ]
+    }
 }
