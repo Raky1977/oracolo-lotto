@@ -1,0 +1,13 @@
+{
+  "last_update": "08 Marzo 2026",
+  "ritardatari": [
+    {"numero": 77, "ritardo": 54},
+    {"numero": 13, "ritardo": 49},
+    {"numero": 82, "ritardo": 46}
+  ],
+  "frequenti": [
+    {"numero": 34, "uscite": 21},
+    {"numero": 55, "uscite": 19},
+    {"numero": 12, "uscite": 18}
+  ]
+}
