@@ -7,50 +7,65 @@ def get_real_data():
     database = {"lotto": [], "superenalotto": [], "last_global_update": ""}
     
     try:
-        # ESEMPIO DI SCRAPING (Fonte: Estrazioni del Lotto)
-        # Il robot punta a un URL che contiene l'ultima tabella disponibile
-        url = "https://www.estrazionedellotto.it/" 
+        # --- SCRAPING LOTTO ---
+        url_lotto = "https://www.estrazionedellotto.it/ultime-estrazioni-del-lotto.asp"
         headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, 'html.parser')
+        res_lotto = requests.get(url_lotto, headers=headers)
+        soup_lotto = BeautifulSoup(res_lotto.text, 'html.parser')
 
-        # --- LOGICA PER IL LOTTO ---
-        # Il robot cerca la tabella delle ruote (Bari, Cagliari, ecc.)
-        lotto_data = {"data": datetime.now().strftime("%d/%m/%Y"), "ruote": {}}
+        lotto_entry = {"data": "", "ruote": {}}
         
-        # Qui il robot simula la cattura (in produzione legge i tag <td> della tabella)
-        # Nota: Inseriamo un set di dati reali di partenza
-        ruote_nomi = ["Bari", "Cagliari", "Firenze", "Genova", "Milano", "Napoli", "Palermo", "Roma", "Torino", "Venezia", "Nazionale"]
+        # Cerchiamo la data
+        data_tag = soup_lotto.find("span", {"class": "data-estrazione"})
+        lotto_entry["data"] = data_tag.text.strip() if data_tag else datetime.now().strftime("%d/%m/%Y")
+
+        # Cerchiamo le ruote nella tabella
+        table = soup_lotto.find("table", {"class": "tabella-estrazioni"})
+        if table:
+            rows = table.find_all("tr")
+            for row in rows:
+                cols = row.find_all("td")
+                if len(cols) >= 6:
+                    nome_ruota = cols[0].text.strip()
+                    numeri = [int(cols[i].text.strip()) for i in range(1, 6)]
+                    lotto_entry["ruote"][nome_ruota] = numeri
         
-        # Simulazione scraping riuscito (da agganciare ai selettori CSS del sito scelto)
-        for r in ruote_nomi:
-            # Qui andrebbe soup.find... per estrarre i 5 numeri reali
-            lotto_data["ruote"][r] = [10, 20, 30, 40, 50] # Placeholder che diventerà dinamico
+        database["lotto"].append(lotto_entry)
+
+        # --- SCRAPING SUPERENALOTTO ---
+        url_super = "https://www.estrazionedellotto.it/ultime-estrazioni-superenalotto.asp"
+        res_super = requests.get(url_super, headers=headers)
+        soup_super = BeautifulSoup(res_super.text, 'html.parser')
+        
+        super_entry = {"data": lotto_entry["data"], "numeri": [], "jolly": 0, "superstar": 0}
+        
+        # Cerchiamo i 6 numeri principali
+        palle = soup_super.find_all("span", {"class": "palla-superenalotto"})
+        if len(palle) >= 6:
+            super_entry["numeri"] = [int(palle[i].text.strip()) for i in range(6)]
             
-        database["lotto"].append(lotto_data)
+        # Jolly e Superstar
+        jolly_tag = soup_super.find("span", {"class": "palla-jolly"})
+        if jolly_tag: super_entry["jolly"] = int(jolly_tag.text.strip())
+        
+        star_tag = soup_super.find("span", {"class": "palla-superstar"})
+        if star_tag: super_entry["superstar"] = int(star_tag.text.strip())
 
-        # --- LOGICA PER IL SUPERENALOTTO ---
-        super_data = {
-            "data": datetime.now().strftime("%d/%m/%Y"),
-            "numeri": [1, 2, 3, 4, 5, 6],
-            "jolly": 7,
-            "superstar": 8
-        }
-        database["superenalotto"].append(super_data)
+        database["superenalotto"].append(super_entry)
         
         database["last_global_update"] = datetime.now().strftime("%d/%m/%Y %H:%M")
         return database
 
     except Exception as e:
-        print(f"Errore durante lo scraping: {e}")
+        print(f"Errore: {e}")
         return None
 
 def update():
     newData = get_real_data()
-    if newData:
+    if newData and len(newData["lotto"][0]["ruote"]) > 0:
         with open('estrazioni.json', 'w') as f:
             json.dump(newData, f, indent=4)
-        print("Database aggiornato con successo!")
+        print("Dati reali scaricati e salvati!")
 
 if __name__ == "__main__":
     update()
