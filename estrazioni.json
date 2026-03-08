@@ -1,5 +1,17 @@
 {
-  "lotto": [],
-  "superenalotto": [],
-  "last_global_update": ""
+    "lotto": [
+        {
+            "data": "08/03/2026",
+            "ruote": {}
+        }
+    ],
+    "superenalotto": [
+        {
+            "data": "08/03/2026",
+            "numeri": [],
+            "jolly": 0,
+            "superstar": 0
+        }
+    ],
+    "last_global_update": "08/03/2026 17:07"
 }
