@@ -3,63 +3,65 @@ import requests
 from datetime import datetime
 import os
 
-def get_data_lotto():
-    # URL di un'API aperta che fornisce i dati del Lotto in tempo reale
-    # Questa fonte è molto più permissiva con GitHub Actions
-    url = "https://raw.githubusercontent.com/fede-94/lotto-italia/main/lotto.json"
+def get_data_sisal():
+    # Sisal è il gestore ufficiale, meno probabile che dia 404
+    # Usiamo un URL che punta direttamente all'ultima estrazione
+    url = "https://www.sisal.it/api-risultati-giochi/v2/estrazioni/LOTTO/ultime-estrazioni"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json'
+    }
     
     try:
-        print(f"Tentativo di connessione a: {url}")
-        response = requests.get(url, timeout=15)
-        
+        response = requests.get(url, headers=headers, timeout=15)
         if response.status_code == 200:
             data = response.json()
-            # Prendiamo l'ultima estrazione (la prima dell'elenco)
-            ultima = data[0]
+            # Prendiamo il primo concorso (il più recente)
+            concorso = data[0]
+            data_est = concorso.get("dataEstrazione", datetime.now().strftime("%d/%m/%Y"))
             
-            # Trasformiamo i nomi delle ruote per farli combaciare con la tua App
-            estrazione_pulita = {
-                "data": ultima["data"],
-                "ruote": {k.capitalize(): v for k, v in ultima["ruote"].items()}
-            }
+            estrazione_pulita = {"data": data_est, "ruote": {}}
+            
+            # Mappiamo i risultati sulle ruote
+            for dettaglio in concorso.get("dettagli", []):
+                ruota_nome = dettaglio.get("ruota", "").capitalize()
+                numeri = dettaglio.get("numeri", [])
+                if ruota_nome and numeri:
+                    estrazione_pulita["ruote"][ruota_nome] = numeri
+            
             return estrazione_pulita
-        else:
-            print(f"Errore server: {response.status_code}")
-            return None
     except Exception as e:
-        print(f"Errore di rete: {e}")
-        return None
+        print(f"Errore Sisal: {e}")
+    return None
 
 def update():
-    dati = get_data_lotto()
+    print("Recupero dati ufficiali da Sisal...")
+    dati = get_data_sisal()
     filename = 'estrazioni.json'
     
-    # Caricamento database attuale o creazione se manca
+    # Gestione file JSON
     if os.path.exists(filename):
         with open(filename, 'r', encoding='utf-8') as f:
-            try:
-                db = json.load(f)
-            except:
-                db = {"lotto": [], "superenalotto": [], "last_global_update": ""}
+            try: db = json.load(f)
+            except: db = {"lotto": [], "superenalotto": [], "last_global_update": ""}
     else:
         db = {"lotto": [], "superenalotto": [], "last_global_update": ""}
 
-    if dati:
-        # Controlla se abbiamo già questi dati
-        ultima_data_salvata = db["lotto"][0]["data"] if db["lotto"] else ""
+    if dati and dati["ruote"]:
+        ultima_data = db["lotto"][0]["data"] if db["lotto"] else ""
         
-        if dati["data"] != ultima_data_salvata:
+        if dati["data"] != ultima_data:
             db["lotto"].insert(0, dati)
-            db["lotto"] = db["lotto"][:20] # Teniamo lo storico
+            db["lotto"] = db["lotto"][:20]
             db["last_global_update"] = datetime.now().strftime("%d/%m/%Y %H:%M")
             
             with open(filename, 'w', encoding='utf-8') as f:
                 json.dump(db, f, indent=4, ensure_ascii=False)
-            print(f"✅ FATTO: Il JSON è stato popolato con i numeri del {dati['data']}")
+            print(f"✅ SUCCESSO: Dati reali Sisal salvati per il {dati['data']}")
         else:
-            print("ℹ️ Il file è già aggiornato all'ultima estrazione disponibile.")
+            print("ℹ️ Già aggiornato.")
     else:
-        print("❌ Fallimento totale: Anche la fonte API è irraggiungibile.")
+        print("❌ Fallimento: Sisal non ha restituito dati.")
 
 if __name__ == "__main__":
     update()
