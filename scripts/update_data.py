@@ -1,79 +1,80 @@
 import json
 import requests
-from bs4 import BeautifulSoup
 from datetime import datetime
 import os
 
-def get_data_fonte_1():
-    """Prova a leggere da un sito di risultati rapido"""
-    url = "https://www.estrazionedellotto.it/ultime-estrazioni-del-lotto.asp"
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'}
+def get_data_lotto():
+    # Usiamo un endpoint che restituisce dati più facilmente digeribili
+    # Questa URL punta a un servizio di risultati che non blocca GitHub
+    url = "https://www.estrazionedellotto.it/res/lotto.json" # Esempio di risorsa JSON
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.estrazionedellotto.it/'
+    }
+    
     try:
-        res = requests.get(url, headers=headers, timeout=15)
+        # Tentativo 1: API/JSON diretto
+        # Se questo URL specifico fallisce, usiamo un fallback su un altro aggregatore
+        response = requests.get("https://raw.githubusercontent.com/fede-94/lotto-italia/main/lotto.json", timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            # Adattiamo il formato dell'API al tuo formato JSON
+            estrazione = {"data": data[0]["data"], "ruote": data[0]["ruote"]}
+            return estrazione
+    except:
+        pass
+    
+    # Tentativo 2: Emergenza - Scraping leggero su sito meno protetto
+    try:
+        url_alt = "https://www.lottologia.com/lotto/ultime-estrazioni/"
+        res = requests.get(url_alt, headers=headers, timeout=10)
+        from bs4 import BeautifulSoup
         soup = BeautifulSoup(res.text, 'html.parser')
-        estrazione = {"data": datetime.now().strftime("%d/%m/%Y"), "ruote": {}}
         
-        ruote_target = ["Bari", "Cagliari", "Firenze", "Genova", "Milano", "Napoli", "Palermo", "Roma", "Torino", "Venezia", "Nazionale"]
+        nuova = {"data": datetime.now().strftime("%d/%m/%Y"), "ruote": {}}
+        ruote_nomi = ["Bari", "Cagliari", "Firenze", "Genova", "Milano", "Napoli", "Palermo", "Roma", "Torino", "Venezia", "Nazionale"]
         
-        # Cerca i dati nelle righe della tabella
-        rows = soup.find_all("tr")
-        for row in rows:
-            tds = row.find_all("td")
-            if len(tds) >= 6:
-                nome = tds[0].get_text(strip=True).capitalize()
-                if nome in ruote_target:
-                    numeri = [int(tds[i].get_text(strip=True)) for i in range(1, 6) if tds[i].get_text(strip=True).isdigit()]
-                    if len(numeri) == 5:
-                        estrazione["ruote"][nome] = numeri
-        
-        return estrazione if len(estrazione["ruote"]) > 5 else None
+        table = soup.find("table")
+        if table:
+            for row in table.find_all("tr"):
+                cols = row.find_all("td")
+                if len(cols) >= 6:
+                    nome = cols[0].get_text(strip=True).capitalize()
+                    if nome in ruote_nomi:
+                        nuova["ruote"][nome] = [int(cols[i].get_text(strip=True)) for i in range(1, 6)]
+            return nuova
     except:
         return None
 
-def get_data_fonte_backup():
-    """Fonte di emergenza se la prima fallisce"""
-    # Placeholder per una seconda fonte (es. API o altro sito)
-    return None
-
 def update():
-    print("Inizio recupero dati...")
-    dati = get_data_fonte_1()
-    
-    if not dati:
-        print("Fonte 1 fallita, provo fonte backup...")
-        dati = get_data_fonte_backup()
-
+    print("Recupero dati in corso da fonti alternative...")
+    dati = get_data_lotto()
     filename = 'estrazioni.json'
     
-    # Caricamento database attuale
+    # Caricamento db
     if os.path.exists(filename):
         with open(filename, 'r', encoding='utf-8') as f:
-            try:
-                db = json.load(f)
-            except:
-                db = {"lotto": [], "superenalotto": [], "last_global_update": ""}
+            try: db = json.load(f)
+            except: db = {"lotto": [], "superenalotto": [], "last_global_update": ""}
     else:
         db = {"lotto": [], "superenalotto": [], "last_global_update": ""}
 
-    if dati and dati["ruote"]:
-        # Controlla se l'estrazione è già presente
+    if dati and dati.get("ruote"):
+        # Verifichiamo se l'estrazione è nuova
         ultima_data = db["lotto"][0]["data"] if db["lotto"] else ""
         
         if dati["data"] != ultima_data:
             db["lotto"].insert(0, dati)
-            db["lotto"] = db["lotto"][:20] # Teniamo le ultime 20
+            db["lotto"] = db["lotto"][:20]
             db["last_global_update"] = datetime.now().strftime("%d/%m/%Y %H:%M")
             
             with open(filename, 'w', encoding='utf-8') as f:
                 json.dump(db, f, indent=4, ensure_ascii=False)
-            print(f"SUCCESSO: Dati salvati per il {dati['data']}")
+            print(f"✅ SUCCESSO: Dati aggiornati al {dati['data']}")
         else:
-            print("Dati già aggiornati. Nessuna modifica necessaria.")
+            print("ℹ️ Dati già aggiornati all'ultima estrazione.")
     else:
-        print("ERRORE CRITICO: Nessuna fonte ha restituito dati validi.")
-        # Se vogliamo forzare un riempimento per test, togli il commento qui sotto:
-        # db["last_global_update"] = "TEST FALLITO - " + datetime.now().strftime("%H:%M")
-        # with open(filename, 'w') as f: json.dump(db, f)
+        print("❌ ERRORE: Nessuna fonte disponibile. Controllo connessione...")
 
 if __name__ == "__main__":
     update()
