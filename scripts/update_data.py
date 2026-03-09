@@ -1,38 +1,22 @@
-import json
 import requests
-from datetime import datetime
+import json
+
+print("Script partito")
 
 url = "https://lotto-api.onrender.com/lotto/latest"
 
-def update():
-
+try:
     r = requests.get(url, timeout=10)
-    data = r.json()
+    r.raise_for_status()  # genera eccezione se status != 200
+    data = r.json()       # prende direttamente il JSON dall'API
 
-    risultato = {
-        "lotto": [{
-            "data": datetime.now().strftime("%d/%m/%Y"),
-            "ruote": {
-                "Bari": data.get("bari", []),
-                "Cagliari": data.get("cagliari", []),
-                "Firenze": data.get("firenze", []),
-                "Genova": data.get("genova", []),
-                "Milano": data.get("milano", []),
-                "Napoli": data.get("napoli", []),
-                "Palermo": data.get("palermo", []),
-                "Roma": data.get("roma", []),
-                "Torino": data.get("torino", []),
-                "Venezia": data.get("venezia", []),
-                "Nazionale": data.get("nazionale", [])
-            }
-        }],
-        "superenalotto": [],
-        "last_global_update": datetime.now().strftime("%d/%m/%Y %H:%M")
-    }
+    print("Dati ricevuti:", data)
 
-    with open("estrazioni.json","w",encoding="utf-8") as f:
-        json.dump(risultato,f,indent=2,ensure_ascii=False)
+    # Scrivi nel file
+    with open('estrazioni.json', 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
 
-    print("JSON aggiornato")
+    print("SUCCESSO: JSON aggiornato")
 
-update()
+except requests.exceptions.RequestException as e:
+    print("Errore nella richiesta:", e)
