@@ -1,84 +1,88 @@
-import json
 import requests
+from bs4 import BeautifulSoup
 from datetime import datetime
 import os
 
-def get_data_backup():
-    # Fonti multiple per massima sicurezza
-    urls = [
-        "https://raw.githubusercontent.com/fede-94/lotto-italia/main/lotto.json",
-        "https://api.allorigins.win/get?url=https://www.estrazionedellotto.it/res/lotto.json",
-        "https://raw.githubusercontent.com/michele-v/lotto-italia/master/lotto.json"
-    ]
+def scrape_lotto_oggi():
+    url = "https://www.estrazionilottooggi.it/"
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     
-    for url in urls:
-        try:
-            print(f"Tentativo su: {url}")
-            response = requests.get(url, timeout=20)
-            if response.status_code == 200:
-                content = response.json()
-                # Gestione wrapper AllOrigins
-                if "contents" in content:
-                    data = json.loads(content["contents"])
-                else:
-                    data = content
-                
-                ultima = data[0] if isinstance(data, list) else data
-                if "ruote" in ultima:
-                    print(f"✅ Dati trovati per la data: {ultima.get('data')}")
-                    return ultima
-        except Exception as e:
-            print(f"Fonte fallita: {url} - Errore: {e}")
-            continue
+    try:
+        print(f"Scraping da: {url}")
+        response = requests.get(url, headers=headers, timeout=20)
+        if response.status_code != 200:
+            return None
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Cerchiamo la data dell'estrazione
+        # Di solito è in un tag h2 o simile (es: "Estrazione del 03/03/2026")
+        data_testo = soup.find("h2").get_text() 
+        # Estraiamo solo la data GG/MM/AAAA
+        import re
+        data_match = re.search(r'(\d{2}/\d{2}/\d{4})', data_testo)
+        if not data_match:
+            return None
+        
+        data_gg_mm_aaaa = data_match.group(1)
+        # Convertiamo in AAAA/MM/GG per il tuo file .txt
+        d = datetime.strptime(data_gg_mm_aaaa, "%d/%m/%Y")
+        data_formattata = d.strftime("%Y/%m/%p").replace("AM","").replace("PM","").strip() # Gestione locale
+        data_formattata = d.strftime("%Y/%m/%d")
+
+        ruote_nomi = ["Bari", "Cagliari", "Firenze", "Genova", "Milano", "Napoli", "Palermo", "Roma", "Torino", "Venezia", "Nazionale"]
+        estrazione = {"data": data_formattata, "ruote": {}}
+
+        # Lo scraper cerca le tabelle dei numeri
+        tabelle = soup.find_all("table")
+        for tabella in tabelle:
+            rows = tabella.find_all("tr")
+            for row in rows:
+                cols = row.find_all("td")
+                if len(cols) >= 2:
+                    nome_ruota = cols[0].get_text(strip=True).capitalize()
+                    if nome_ruota in ruote_nomi:
+                        # Prende i 5 numeri
+                        numeri = [int(n.get_text(strip=True)) for n in cols[1:] if n.get_text(strip=True).isdigit()]
+                        if len(numeri) == 5:
+                            estrazione["ruote"][nome_ruota] = numeri
+
+        if len(estrazione["ruote"]) >= 11:
+            return estrazione
+    except Exception as e:
+        print(f"Errore Scraping: {e}")
     return None
 
-def update_txt_file(nuova_estrazione):
+def update_txt_file(nuova):
     filename = 'storico01-oggi.txt'
-    # Pulizia data: trasforma "03-03-2026" o simili in "2026/03/03"
-    raw_data = nuova_estrazione["data"].replace("-", "/")
-    # Se la data è GG/MM/AAAA la giriamo per il tuo file
-    parti_data = raw_data.split("/")
-    if len(parti_data[0]) == 2: # è nel formato 03/03/2026
-        data_estrazione = f"{parti_data[2]}/{parti_data[1]}/{parti_data[0]}"
-    else:
-        data_estrazione = raw_data
-
     mappa_sigle = {
         "Bari": "BA", "Cagliari": "CA", "Firenze": "FI", "Genova": "GE",
         "Milano": "MI", "Napoli": "NA", "Palermo": "PA", "Roma": "RM",
         "Torino": "TO", "Venezia": "VE", "Nazionale": "RN"
     }
 
-    nuove_righe = []
-    # Gestiamo sia chiavi Maiuscole che minuscole
-    ruote_data = {k.capitalize(): v for k, v in nuova_estrazione["ruote"].items()}
-
-    for nome_esteso, sigla in mappa_sigle.items():
-        numeri = ruote_data.get(nome_esteso)
-        if numeri:
-            numeri_str = "\t".join(map(str, numeri))
-            riga = f"{data_estrazione}\t{sigla}\t{numeri_str}\n"
-            nuove_righe.append(riga)
-
-    if not nuove_righe:
-        print("❌ Errore: Nessuna ruota trovata nei dati scaricati.")
-        return False
+    if not nuova or not nuova["ruote"]: return False
 
     with open(filename, 'r', encoding='utf-8') as f:
         vecchio_contenuto = f.read()
 
-    if data_estrazione in vecchio_contenuto[:1000]:
-        print(f"ℹ️ Dati del {data_estrazione} già presenti. Esco.")
+    if nuova["data"] in vecchio_contenuto[:500]:
+        print(f"Data {nuova['data']} già presente.")
         return False
 
+    nuove_righe = ""
+    for nome, sigla in mappa_sigle.items():
+        numeri = nuova["ruote"].get(nome)
+        if numeri:
+            nuove_righe += f"{nuova['data']}\t{sigla}\t" + "\t".join(map(str, numeri)) + "\n"
+
     with open(filename, 'w', encoding='utf-8') as f:
-        f.writelines(nuove_righe)
-        f.write(vecchio_contenuto)
+        f.write(nuove_righe + vecchio_contenuto)
     return True
 
 if __name__ == "__main__":
-    dati = get_data_backup()
+    dati = scrape_lotto_oggi()
     if dati and update_txt_file(dati):
-        print("🚀 UPDATE COMPLETATO!")
+        print(f"✅ Aggiornato al {dati['data']}!")
     else:
-        print("⚠️ Nessun aggiornamento effettuato.")
+        print("❌ Nessun nuovo dato trovato.")
