@@ -2,8 +2,8 @@ name: Converti Storico Lotto in JSON
 
 on:
   push:
-    paths:
-      - 'storico.txt' # Il processo parte automaticamente ogni volta che modifichi questo file
+    branches:
+      - main  # Parte sempre quando fai un commit su main, senza filtri restrittivi sui file
 
 permissions:
   contents: write
@@ -15,6 +15,8 @@ jobs:
     steps:
     - name: Controlla il codice del repository
       uses: actions/checkout@v4
+      with:
+        persist-credentials: true  # Forza il mantenimento delle credenziali per il push finale
 
     - name: Configura Python
       uses: actions/setup-python@v5
@@ -29,5 +31,5 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add estrazioni_complete.json log_diagnostica.txt
-        git commit -m "Aggiornamento dati e log diagnostica" || exit 0
+        git commit -m "Aggiornamento automatico database JSON" || exit 0
         git push
