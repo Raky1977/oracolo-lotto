@@ -24,10 +24,10 @@ jobs:
     - name: Esegui il convertitore
       run: python convertitore.py
 
-    - name: Commit e Push dei cambiamenti
+- name: Commit e Push dei cambiamenti
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git add estrazioni_complete.json
-        git commit -m "Aggiornato archivio estrazioni complete JSON" || exit 0
+        git add estrazioni_complete.json log_diagnostica.txt
+        git commit -m "Aggiornamento dati e diagnostica" || exit 0
         git push
