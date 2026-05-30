@@ -3,7 +3,7 @@ name: Converti Storico Lotto in JSON
 on:
   push:
     paths:
-      - 'storico.txt' # Il processo parte solo quando modifichi questo file
+      - 'storico.txt' # Il processo parte automaticamente ogni volta che modifichi questo file
 
 permissions:
   contents: write
@@ -29,5 +29,5 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add estrazioni_complete.json log_diagnostica.txt
-        git commit -m "Aggiornamento dati e diagnostica" || exit 0
+        git commit -m "Aggiornamento dati e log diagnostica" || exit 0
         git push
