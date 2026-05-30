@@ -11,7 +11,7 @@ mappa_ruote = {
 
 estrazioni_dict = {}
 
-print("--- AVVIO CONVERTITORE CORRETTO ---")
+print("--- AVVIO CONVERTITORE ---")
 
 if not os.path.exists("storico.txt"):
     print("Errore: storico.txt non trovato!")
@@ -27,11 +27,17 @@ with open("storico.txt", "r", encoding="utf-8") as f:
         if len(parti) < 7:
             continue
             
-        data_grezza = parti[0]
-        sigla_ruota = parti[1].upper()
+        data_grezza = parti[0].strip().replace("-", "/")
+        sigla_ruota = parti[1].strip().upper()
         
         try:
-            numeri_estrazione = [int(parti[2]), int(parti[3]), int(parti[4]), int(parti[5]), int(parti[6])]
+            numeri_estrazione = [
+                int(parti[2]), 
+                int(parti[3]), 
+                int(parti[4]), 
+                int(parti[5]), 
+                int(parti[6])
+            ]
             data_oggetto = datetime.strptime(data_grezza, "%Y/%m/%d")
             data_formattata = data_oggetto.strftime("%d/%m/%Y")
         except Exception:
@@ -64,4 +70,4 @@ with open("log_diagnostica.txt", "w", encoding="utf-8") as f:
     if lista_ordinate:
         f.write(f"Data piu recente in cima al JSON: {lista_ordinate[0]['data']}\n")
 
-print("File generati con successo!")
+print("Conversione completata!")
