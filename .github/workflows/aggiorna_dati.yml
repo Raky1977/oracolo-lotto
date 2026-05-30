@@ -24,7 +24,7 @@ jobs:
     - name: Esegui il convertitore
       run: python convertitore.py
 
-- name: Commit e Push dei cambiamenti
+    - name: Commit e Push dei cambiamenti
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
