@@ -24,9 +24,10 @@ jobs:
     - name: Esegui il convertitore
       run: python convertitore.py
 
-    - name: Salva e pubblica il file JSON modificato
+    - name: Commit e Push dei cambiamenti
       run: |
-        git config --global user.name "GitHub Actions Bot"
-        git config --global user.email "actions@github.com"
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
         git add estrazioni_complete.json
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Aggiornato file estrazioni_complete.json in automatico" && git push)
+        git commit -m "Aggiornato archivio estrazioni complete JSON" || exit 0
+        git push
