@@ -2,10 +2,11 @@ import json
 import os
 from datetime import datetime
 
+# Mappa corretta per la logica dell'applicazione (Iniziale Maiuscola)
 mappa_ruote = {
-    "BA": "BARI", "CA": "CAGLIARI", "FI": "FIRENZE", "GE": "GENOVA",
-    "MI": "MILANO", "NA": "NAPOLI", "PA": "PALERMO", "RM": "ROMA",
-    "TO": "TORINO", "VE": "VENEZIA", "RN": "NAZIONALE"
+    "BA": "Bari", "CA": "Cagliari", "FI": "Firenze", "GE": "Genova",
+    "MI": "Milano", "NA": "Napoli", "PA": "Palermo", "RM": "Roma",
+    "TO": "Torino", "VE": "Venezia", "RN": "Nazionale"
 }
 
 estrazioni_dict = {}
@@ -47,7 +48,7 @@ with open("storico.txt", "r", encoding="utf-8") as f:
             
         estrazioni_dict[data_formattata]["ruote"][nome_ruota] = numeri
 
-# Ordina le estrazioni in modo cronologico reale (dalla più recente alla più vecchia)
+# Ordina in modo cronologico (dal più recente al più vecchio)
 lista_ordinate = sorted(
     estrazioni_dict.values(), 
     key=lambda x: datetime.strptime(x["data"], "%d/%m/%Y"), 
@@ -57,4 +58,4 @@ lista_ordinate = sorted(
 with open("estrazioni_complete.json", "w", encoding="utf-8") as f:
     json.dump(lista_ordinate, f, indent=2, ensure_ascii=False)
 
-print("Conversione e ordinamento cronologico completati!")
+print("Conversione completata con ruote formattate per l'applicazione!")
