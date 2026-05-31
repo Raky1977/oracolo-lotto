@@ -30,6 +30,6 @@ jobs:
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git add estrazioni_complete.json log_diagnostica.txt
-        git commit -m "Aggiornamento automatico database JSON" || exit 0
+        git add estrazioni_complete.json estrazioni_recenti.json log_diagnostica.txt
+        git commit -m "Aggiornamento automatico database JSON e incrementale" || exit 0
         git push
