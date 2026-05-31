@@ -56,18 +56,28 @@ with open("storico.txt", "r", encoding="utf-8") as f:
             
         estrazioni_dict[data_formattata]["ruote"][nome_ruota] = numeri_estrazione
 
+# Ordinamento cronologico decrescente (le più recenti in cima)
 lista_ordinate = sorted(
     estrazioni_dict.values(), 
     key=lambda x: datetime.strptime(x["data"], "%d/%m/%Y"), 
     reverse=True
 )
 
+# 1. Salvataggio del database completo (per installazioni pulite o ripristini)
 with open("estrazioni_complete.json", "w", encoding="utf-8") as f:
     json.dump(lista_ordinate, f, indent=2, ensure_ascii=False)
 
+# 2. Salvataggio del file incrementale leggero (ultime 15 estrazioni per l'aggiornamento dell'app)
+lista_recenti = lista_ordinate[:15]
+with open("estrazioni_recenti.json", "w", encoding="utf-8") as f:
+    json.dump(lista_recenti, f, indent=2, ensure_ascii=False)
+
+# 3. Scrittura dei log di diagnostica
 with open("log_diagnostica.txt", "w", encoding="utf-8") as f:
     f.write(f"Ultimo controllo eseguito il: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
     if lista_ordinate:
-        f.write(f"Data piu recente in cima al JSON: {lista_ordinate[0]['data']}\n")
+        f.write(f"Data piu recente in cima al JSON completo: {lista_ordinate[0]['data']}\n")
+    if lista_recenti:
+        f.write(f"Data piu vecchia nel JSON incrementale: {lista_recenti[-1]['data']}\n")
 
-print("Conversione completata!")
+print("Conversione completata con successo!")
