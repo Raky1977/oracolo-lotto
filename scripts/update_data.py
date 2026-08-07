@@ -1,105 +1,59 @@
+import json, re, sys
+from datetime import datetime
+from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
-import re
-import os
 
-def scrape_lotto():
-    url = "https://www.estrazionilottooggi.it/"
-    # User-Agent più completo per simulare un browser reale
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    }
-    
-    try:
-        print(f"Connessione a: {url}")
-        response = requests.get(url, headers=headers, timeout=30)
-        if response.status_code != 200:
-            print(f"Errore HTTP: {response.status_code}")
-            return None
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # 1. Trova la Data
-        # Il sito usa spesso un tag h1 o h2 per la data principale
-        testo_pagina = soup.get_text()
-        data_match = re.search(r'(\d{2}/\d{2}/\d{4})', testo_pagina)
-        if not data_match:
-            print("Impossibile trovare la data nella pagina.")
-            return None
-        
-        data_gg_mm_aaaa = data_match.group(1)
-        d = datetime.strptime(data_gg_mm_aaaa, "%d/%m/%Y")
-        data_formattata = d.strftime("%Y/%m/%d")
-        print(f"Data rilevata sul sito: {data_formattata}")
+ADM_URL = "https://www.adm.gov.it/portale/monopoli/giochi/gioco-del-lotto/lotto_g"
+OUT = Path("estrazioni_recenti.json")
+RUOTE = ["Bari","Cagliari","Firenze","Genova","Milano","Napoli","Palermo","Roma","Torino","Venezia","Nazionale"]
 
-        # 2. Estrazione Ruote e Numeri
-        # Cerchiamo i blocchi che contengono il nome della ruota e i 5 numeri
-        ruote_nomi = ["Bari", "Cagliari", "Firenze", "Genova", "Milano", "Napoli", "Palermo", "Roma", "Torino", "Venezia", "Nazionale"]
-        risultato = {"data": data_formattata, "ruote": {}}
 
-        # Cerchiamo tutte le righe o i blocchi di testo
-        for r in ruote_nomi:
-            # Cerchiamo il nome della ruota nel testo e proviamo a prendere i numeri successivi
-            # Spesso i numeri sono in elementi con classe "num" o dentro una cella td
-            elemento_ruota = soup.find(text=re.compile(r, re.IGNORECASE))
-            if elemento_ruota:
-                parent = elemento_ruota.find_parent(['tr', 'div'])
-                # Estraiamo tutti i numeri dal contenitore della ruota
-                numeri = re.findall(r'\b(\d{1,2})\b', parent.get_text())
-                # Filtriamo solo i primi 5 numeri validi (1-90)
-                numeri_puliti = [int(n) for n in numeri if 1 <= int(n) <= 90][:5]
-                
-                if len(numeri_puliti) == 5:
-                    risultato["ruote"][r] = numeri_puliti
-                    print(f"Presa ruota {r}: {numeri_puliti}")
+def fetch_latest():
+    r = requests.get(ADM_URL, timeout=30, headers={"User-Agent":"Mozilla/5.0 LottoItaliaDataUpdater/1.0"})
+    r.raise_for_status()
+    text = BeautifulSoup(r.text, "html.parser").get_text(" ", strip=True)
 
-        if len(risultato["ruote"]) < 11:
-            print(f"Attenzione: Trovate solo {len(risultato['ruote'])} ruote su 11.")
-        
-        return risultato if len(risultato["ruote"]) > 0 else None
+    m = re.search(r"Estrazione\s+n[°º]?\s*(\d+)\s+del\s+(\d{2}/\d{2}/\d{4})", text, re.I)
+    if not m:
+        raise RuntimeError("Numero/data estrazione ADM non riconosciuti")
+    concorso, data_it = m.group(1), m.group(2)
 
-    except Exception as e:
-        print(f"Errore durante lo scraping: {e}")
-        return None
+    ruote = {}
+    for i, ruota in enumerate(RUOTE):
+        start = text.upper().find(ruota.upper())
+        if start < 0:
+            raise RuntimeError(f"Ruota {ruota} non trovata")
+        end_candidates = [text.upper().find(r.upper(), start + len(ruota)) for r in RUOTE[i+1:]]
+        end_candidates = [x for x in end_candidates if x > start]
+        end = min(end_candidates) if end_candidates else text.upper().find("SIMBOLOTTO", start)
+        if end < 0: end = start + 500
+        chunk = text[start + len(ruota):end]
+        nums = [int(x) for x in re.findall(r"\b(?:[1-9]|[1-8]\d|90)\b", chunk)]
+        if len(nums) < 5:
+            raise RuntimeError(f"Numeri insufficienti per {ruota}: {nums}")
+        ruote[ruota] = nums[:5]
 
-def update_txt(nuova):
-    filename = 'storico01-oggi.txt'
-    if not nuova: return False
+    dt = datetime.strptime(data_it, "%d/%m/%Y")
+    return {"data": dt.strftime("%Y/%m/%d"), "concorso": concorso, "ruote": ruote}
 
-    # Mappa sigle per il tuo file .txt
-    mappa_sigle = {
-        "Bari": "BA", "Cagliari": "CA", "Firenze": "FI", "Genova": "GE",
-        "Milano": "MI", "Napoli": "NA", "Palermo": "PA", "Roma": "RM",
-        "Torino": "TO", "Venezia": "VE", "Nazionale": "RN"
-    }
 
-    if not os.path.exists(filename):
-        print(f"Errore: {filename} non trovato!")
-        return False
+def main():
+    latest = fetch_latest()
+    old = []
+    if OUT.exists():
+        try: old = json.loads(OUT.read_text(encoding="utf-8"))
+        except Exception: old = []
+    if not isinstance(old, list): old = []
 
-    with open(filename, 'r', encoding='utf-8') as f:
-        vecchio_contenuto = f.read()
-
-    if nuova["data"] in vecchio_contenuto[:500]:
-        print(f"L'estrazione del {nuova['data']} è già presente nel file.")
-        return False
-
-    nuove_righe = ""
-    for nome, sigla in mappa_sigle.items():
-        numeri = nuova["ruote"].get(nome)
-        if numeri:
-            nuove_righe += f"{nuova['data']}\t{sigla}\t" + "\t".join(map(str, numeri)) + "\n"
-
-    if nuove_righe:
-        with open(filename, 'w', encoding='utf-8') as f:
-            f.write(nuove_righe + vecchio_contenuto)
-        return True
-    return False
+    key = lambda e: (e.get("data"), str(e.get("concorso", "")))
+    merged = [latest] + [e for e in old if key(e) != key(latest)]
+    merged = sorted(merged, key=lambda e: e.get("data", ""), reverse=True)[:80]
+    OUT.write_text(json.dumps(merged, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"OK: {latest['data']} concorso {latest['concorso']}")
 
 if __name__ == "__main__":
-    dati = scrape_lotto()
-    if dati and update_txt(dati):
-        print("✅ AGGIORNAMENTO COMPLETATO CON SUCCESSO!")
-    else:
-        print("❌ Nessuna modifica apportata.")
+    try: main()
+    except Exception as exc:
+        print(f"ERRORE: {exc}", file=sys.stderr)
+        sys.exit(1)
