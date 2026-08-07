@@ -1,35 +1,30 @@
-name: Converti Storico Lotto in JSON
+name: Aggiorna estrazioni Lotto
 
 on:
-  push:
-    branches:
-      - main  # Parte sempre quando fai un commit su main, senza filtri restrittivi sui file
+  schedule:
+    # Lotto: mar/gio/ven/sab ore 20:00 italiane. GitHub usa UTC.
+    # Finestra ripetuta per assorbire ritardi di pubblicazione e cambio ora legale.
+    - cron: '10,40 18-20 * * 2,4,5,6'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  update:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Controlla il codice del repository
-      uses: actions/checkout@v4
-      with:
-        persist-credentials: true  # Forza il mantenimento delle credenziali per il push finale
-
-    - name: Configura Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.x'
-
-    - name: Esegui il convertitore
-      run: python convertitore.py
-
-    - name: Commit e Push dei cambiamenti
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add estrazioni_complete.json estrazioni_recenti.json log_diagnostica.txt
-        git commit -m "Aggiornamento automatico database JSON e incrementale" || exit 0
-        git push
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests beautifulsoup4
+      - run: python scripts/update_lotto_adm.py
+      - name: Commit solo se ci sono nuovi dati
+        run: |
+          git config user.name "lotto-data-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add estrazioni_recenti.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Aggiorna estrazioni Lotto"
+          git push
