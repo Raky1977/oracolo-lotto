@@ -3,8 +3,15 @@ name: Aggiorna estrazioni Lotto
 on:
   schedule:
     # Lotto: martedi, giovedi, venerdi, sabato.
-    # GitHub cron usa UTC. Questa finestra copre sia CET sia CEST e i ritardi di pubblicazione.
-    - cron: '15,45 18-20 * * 2,4,5,6'
+    # GitHub cron usa UTC.
+    # Controlli serali multipli per coprire eventuali ritardi
+    # nell'aggiornamento dello ZIP della sorgente.
+    - cron: '15,45 18-22 * * 2,4,5,6'
+
+    # Controllo di recupero la mattina successiva.
+    # Domenica, mercoledi, venerdi, sabato.
+    - cron: '30 6 * * 0,3,5,6'
+
   workflow_dispatch:
 
 permissions:
@@ -18,6 +25,7 @@ jobs:
   update:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,21 +46,32 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
+
           p = Path('estrazioni_recenti.json')
           data = json.loads(p.read_text(encoding='utf-8'))
+
           assert isinstance(data, list) and data
           assert len(data[0]['ruote']) == 11
-          print('Ultima estrazione:', data[0]['data'], '- estrazioni pubblicate:', len(data))
+
+          print(
+              'Ultima estrazione:',
+              data[0]['data'],
+              '- estrazioni pubblicate:',
+              len(data)
+          )
           PY
 
       - name: Commit solo se cambia
         run: |
           git config user.name "lotto-data-bot"
           git config user.email "actions@users.noreply.github.com"
+
           git add estrazioni_recenti.json
+
           if git diff --cached --quiet; then
             echo "Nessuna nuova estrazione."
             exit 0
           fi
+
           git commit -m "Aggiorna estrazioni Lotto"
           git push
