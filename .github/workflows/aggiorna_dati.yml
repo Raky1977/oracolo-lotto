@@ -12,6 +12,7 @@ on:
     # Domenica, mercoledi, venerdi, sabato.
     - cron: '30 6 * * 0,3,5,6'
 
+  # Permette anche l'avvio manuale da GitHub Actions
   workflow_dispatch:
 
 permissions:
@@ -38,10 +39,10 @@ jobs:
       - name: Dipendenze
         run: pip install requests
 
-      - name: Scarica ZIP e genera JSON
+      - name: Scarica estrazioni e genera dati
         run: python scripts/update_lotto_zip.py
 
-      - name: Verifica JSON
+      - name: Verifica estrazioni JSON
         run: |
           python - <<'PY'
           import json
@@ -61,17 +62,48 @@ jobs:
           )
           PY
 
+      - name: Verifica editoriale JSON
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path('articoli.json')
+
+          assert p.exists(), "articoli.json non trovato"
+
+          data = json.loads(p.read_text(encoding='utf-8'))
+
+          assert isinstance(data, list)
+          assert data, "articoli.json e vuoto"
+
+          ultimo = data[0]
+
+          assert 'id' in ultimo
+          assert 'data' in ultimo
+          assert 'titolo' in ultimo
+          assert 'anteprima' in ultimo
+          assert 'contenuto' in ultimo
+
+          print(
+              'Ultimo editoriale:',
+              ultimo['data'],
+              '-',
+              ultimo['titolo']
+          )
+          PY
+
       - name: Commit solo se cambia
         run: |
           git config user.name "lotto-data-bot"
           git config user.email "actions@users.noreply.github.com"
 
-          git add estrazioni_recenti.json
+          git add estrazioni_recenti.json articoli.json
 
           if git diff --cached --quiet; then
-            echo "Nessuna nuova estrazione."
+            echo "Nessuna nuova estrazione o editoriale."
             exit 0
           fi
 
-          git commit -m "Aggiorna estrazioni Lotto"
+          git commit -m "Aggiorna estrazioni Lotto e editoriale"
           git push
